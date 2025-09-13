@@ -1,7 +1,26 @@
 @import "tailwindcss";
 
-/* :root {} */
+:root {
+  --primary: #2b3958;
+  --secondary: #fabe65;
+}
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  background: var(--primary);
+  color: var(--secondary);
+}
+
+/* Custom DatePicker styles */
+.react-datepicker-wrapper {
+  width: 100% !important;
+}
+
+.react-datepicker__input-container {
+  width: 100% !important;
+}
+
+.react-datepicker__input-container input {
+  width: 100% !important;
+  box-sizing: border-box;
 }
