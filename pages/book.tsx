@@ -18,6 +18,16 @@ export default function Book() {
         size: string
     }[]>([]);
     const [price, setPrice] = useState<number>(0);
+    const [customer, setCustomer] = useState<{
+        name: string,
+        email: string,
+        phone: string
+    }>({
+        name: '',
+        email: '',
+        phone: ''
+    });
+    const [pollingAuthStatus, setPollingAuthStatus] = useState<boolean>(false);
 
     const uppercaseFirstLetter = (str: string) => {
         return str.charAt(0).toUpperCase() + str.slice(1);
@@ -46,13 +56,19 @@ export default function Book() {
         }
     }
 
+    const handleCustomerDetailsChange = (e: any) => {
+        setCustomer({ ...customer, [e.target.name]: e.target.value });
+    }
+
     const fetchAvailableTubes = async () => {
         if (!dateTime) return;
 
         try {
             const startDate = dateTime;
             const endDate = new Date(startDate.getTime() + 1000 * 60 * 60 * 24);
-            const response = await fetch(`${apiUrl}/tube-availability/?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`);
+            const response = await fetch(`${apiUrl}/tube-availability/?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`, {
+                credentials: 'include'
+            });
 
             const data = await response.json();
             console.log(data);
@@ -62,6 +78,72 @@ export default function Book() {
             console.error(error);
         }
     }
+
+    const verifyAuthStatus = async (e: any) => {
+        e.preventDefault();
+        const response = await fetch(`${apiUrl}/customer-auth/`, {
+            method: 'POST',
+            body: JSON.stringify(customer),
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        });
+        const data = await response.json();
+        console.log(data);
+        if (data.authenticated) {
+            setStep(4);
+        } else {
+            setPollingAuthStatus(true);
+            pollAuthStatus();
+        }
+    }
+
+    const pollAuthStatus = () => {
+        const startTime = Date.now();
+        const maxDuration = 10 * 60 * 1000; // 10 minutes
+
+        const poll = async (delay: number) => {
+            setTimeout(async () => {
+                // Check if exceeded 10 minutes
+                if (Date.now() - startTime >= maxDuration) {
+                    console.log('Polling stopped after 10 minutes');
+                    setPollingAuthStatus(false);
+                    return;
+                }
+
+                const response = await fetch(`${apiUrl}/customer-auth/`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                console.log(data);
+
+                if (data.authenticated) {
+                    setStep(4);
+                    setPollingAuthStatus(false);
+                    return;
+                }
+
+                // Determine next delay based on elapsed time
+                const elapsed = Date.now() - startTime;
+                let nextDelay;
+
+                if (elapsed < 60 * 1000) { // First 1 minute: every 5 seconds
+                    nextDelay = 5 * 1000;
+                } else if (elapsed < 120 * 1000) { // Next minute: every 7 seconds
+                    nextDelay = 7 * 1000;
+                } else { // After 2 minutes: every 10 seconds
+                    nextDelay = 10 * 1000;
+                }
+
+                poll(nextDelay);
+            }, delay);
+        };
+
+        // Start polling after 15 seconds
+        poll(15 * 1000);
+    }
+
 
     return (
         <div className="flex flex-col justify-center items-center p-4">
@@ -127,18 +209,30 @@ export default function Book() {
                     </div>
                 )}
 
-                {/* {step === 3 && (
-                    <div className="flex flex-col justify-center items-center gap-2 w-full max-w-md p-4">
+                {step === 3 && (
+                    <form onChange={handleCustomerDetailsChange} onSubmit={(e) => verifyAuthStatus(e)} className="flex flex-col justify-center items-center gap-2 w-full max-w-md p-4">
                         <label className="text-lg font-medium">Enter Customer Details</label>
-                        <input type="text" className="w-full px-1 bg-gray-50 text-indigo-900" placeholder="Name" />
-                        <input type="email" className="w-full px-1 bg-gray-50 text-indigo-900" placeholder="Email" />
-                        <input type="tel" className="w-full px-1 bg-gray-50 text-indigo-900" placeholder="Phone" />
+                        <input name="name" type="text" className="w-full px-1 bg-gray-50 text-indigo-900" placeholder="Name" />
+                        <input name="email" type="email" className="w-full px-1 bg-gray-50 text-indigo-900" placeholder="Email" />
+                        <input name="phone" type="tel" className="w-full px-1 bg-gray-50 text-indigo-900" placeholder="Phone" />
+                        {pollingAuthStatus ? (
+                            <div className="text-lg font-medium">Polling for authentication status...</div>
+                        ) : (
+                            <button type="submit" className="rounded-lg border border-indigo-500 bg-gray-50 p-3 text-indigo-900 font-semibold cursor-pointer">Verify Email</button>
+                        )}
+                    </form>
+                )}
+
+                {step === 4 && (
+                    <div className="flex flex-col justify-center items-center gap-2 w-full max-w-md p-4">
+                        <label className="text-lg font-medium">Pick Payment Method</label>
+                        <button className="rounded-lg border border-indigo-500 bg-gray-50 p-3 text-indigo-900 font-semibold cursor-pointer">Pay with Card</button>
                     </div>
                 )}
 
-                {step !== 1 && (
+                {step !== 1 && !pollingAuthStatus && (
                     <button onClick={() => setStep(1)} className="rounded-lg border border-indigo-500 bg-gray-50 p-3 text-indigo-900 font-semibold cursor-pointer">Back</button>
-                )} */}
+                )}
             </div>
         </div>
     );
