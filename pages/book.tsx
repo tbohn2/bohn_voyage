@@ -1,10 +1,15 @@
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useState } from "react";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import CheckoutForm from "@/components/checkoutForm";
+
+const stripePublishableKey = "pk_test_51RzVLLQx2SGTNQwzV5NKVucZcMj3dzWj96rNwUSZUhAEZwyfyvP9FFZMcuzgufbOxJQLzNy8fgtHeGgM5mXGEgKY007BWAK2xp";
+const stripePromise = loadStripe(stripePublishableKey || '');
+const apiUrl = process.env.API_URL;
 
 export default function Book() {
-    const apiUrl = process.env.API_URL;
-
     const [step, setStep] = useState<number>(1);
     // 1: Pick Date & Time to fetch available tubes
     // 2: Pick Tube Types to book and quantity
@@ -14,7 +19,7 @@ export default function Book() {
     const [availableTubes, setAvailableTubes] = useState<any[]>([]);
     const [tubeTypes, setTubeTypes] = useState<{
         tubeTypeId: string,
-        quantity: number,
+        numOfTubesBooked: number,
         size: string
     }[]>([]);
     const [price, setPrice] = useState<number>(0);
@@ -28,6 +33,23 @@ export default function Book() {
         phone: ''
     });
     const [pollingAuthStatus, setPollingAuthStatus] = useState<boolean>(false);
+    const [clientSecret, setClientSecret] = useState<string>("");
+
+    const clearStates = () => {
+        setStep(1);
+        setDateTime(new Date());
+        setAvailableTubes([]);
+        setTubeTypes([]);
+        setPrice(0);
+        setCustomer({
+            name: '',
+            email: '',
+            phone: ''
+        });
+        setClientSecret("");
+        setPollingAuthStatus(false);
+    }
+
 
     const uppercaseFirstLetter = (str: string) => {
         return str.charAt(0).toUpperCase() + str.slice(1);
@@ -40,19 +62,17 @@ export default function Book() {
         const tubePrice = availableTubes.find((tube) => tube.tube_type_id === tubeTypeId)?.price;
 
         if (existingTubeType) {
-            const oldPrice = existingTubeType.quantity * tubePrice;
+            const oldPrice = existingTubeType.numOfTubesBooked * tubePrice;
             const newPrice = quantity * tubePrice;
             setPrice(price - oldPrice + newPrice);
-            console.log(price, oldPrice, newPrice);
 
-            existingTubeType.quantity = quantity;
+            existingTubeType.numOfTubesBooked = quantity;
             setTubeTypes([...tubeTypes]);
 
         } else {
             const tubeSize = availableTubes.find((tube) => tube.tube_type_id === tubeTypeId)?.size;
-            setTubeTypes([...tubeTypes, { tubeTypeId, quantity, size: tubeSize }]);
+            setTubeTypes([...tubeTypes, { tubeTypeId, numOfTubesBooked: quantity, size: tubeSize }]);
             setPrice(price + quantity * tubePrice);
-            console.log(price, quantity * tubePrice);
         }
     }
 
@@ -71,7 +91,6 @@ export default function Book() {
             });
 
             const data = await response.json();
-            console.log(data);
             setAvailableTubes(data.availability);
             setStep(2);
         } catch (error) {
@@ -92,7 +111,7 @@ export default function Book() {
         const data = await response.json();
         console.log(data);
         if (data.authenticated) {
-            setStep(4);
+            createPaymentIntent();
         } else {
             setPollingAuthStatus(true);
             pollAuthStatus();
@@ -119,8 +138,8 @@ export default function Book() {
                 console.log(data);
 
                 if (data.authenticated) {
-                    setStep(4);
                     setPollingAuthStatus(false);
+                    createPaymentIntent();
                     return;
                 }
 
@@ -144,6 +163,31 @@ export default function Book() {
         poll(15 * 1000);
     }
 
+    const createPaymentIntent = async () => {
+        if (!dateTime) return;
+
+        const startTime = dateTime.toISOString();
+        const endTime = new Date(dateTime.getTime() + 1000 * 60 * 60 * 24).toISOString();
+
+        const response = await fetch(`${apiUrl}/create-payment-intent/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amount: price,
+                currency: 'usd',
+                start_time: startTime,
+                end_time: endTime,
+                tube_types: tubeTypes
+            }),
+            credentials: 'include'
+        });
+        const data = await response.json();
+        setClientSecret(data.client_secret);
+        setStep(4);
+    }
+
 
     return (
         <div className="flex flex-col justify-center items-center p-4">
@@ -161,7 +205,7 @@ export default function Book() {
                         {tubeTypes.map((tube) => (
                             <div key={tube.tubeTypeId}>
                                 <h2 className="text-lg font-medium">{tube.size}</h2>
-                                <p className="text-sm text-gray-500">{tube.quantity} booked</p>
+                                <p className="text-sm text-gray-500">{tube.numOfTubesBooked} booked</p>
                             </div>
                         ))}
                     </div>
@@ -224,14 +268,13 @@ export default function Book() {
                 )}
 
                 {step === 4 && (
-                    <div className="flex flex-col justify-center items-center gap-2 w-full max-w-md p-4">
-                        <label className="text-lg font-medium">Pick Payment Method</label>
-                        <button className="rounded-lg border border-indigo-500 bg-gray-50 p-3 text-indigo-900 font-semibold cursor-pointer">Pay with Card</button>
-                    </div>
+                    <Elements stripe={stripePromise}>
+                        <CheckoutForm clientSecret={clientSecret} />
+                    </Elements>
                 )}
 
                 {step !== 1 && !pollingAuthStatus && (
-                    <button onClick={() => setStep(1)} className="rounded-lg border border-indigo-500 bg-gray-50 p-3 text-indigo-900 font-semibold cursor-pointer">Back</button>
+                    <button onClick={clearStates} className="rounded-lg border border-indigo-500 bg-gray-50 p-3 text-indigo-900 font-semibold cursor-pointer">Cancel</button>
                 )}
             </div>
         </div>
