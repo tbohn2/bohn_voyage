@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 
 export default function CustomerLogin() {
@@ -13,13 +13,7 @@ export default function CustomerLogin() {
         }
     }, [router.isReady, router.query.token]);
 
-    useEffect(() => {
-        if (token.length > 0) {
-            authCustomer();
-        }
-    }, [token]);
-
-    const authCustomer = async () => {
+    const authCustomer = useCallback(async () => {
         setIsLoading(true);
         setMessage("");
 
@@ -41,7 +35,13 @@ export default function CustomerLogin() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        if (token.length > 0) {
+            authCustomer();
+        }
+    }, [token, authCustomer]);
 
     return (
         <div className="flex flex-col items-center min-h-screen p-4 bg-gray-50">

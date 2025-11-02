@@ -63,7 +63,7 @@ export default function Home() {
             Float Your Way to Adventure
           </h1>
           <p className="text-xl md:text-2xl text-white mb-8 drop-shadow-md">
-            Experience Arizona's serenity by floating down the Salt River on our premium inflatable platforms
+            Experience Arizona&apos;s serenity by floating down the Salt River on our premium inflatable platforms
           </p>
           <Link
             href="/book"
@@ -75,8 +75,8 @@ export default function Home() {
       </section>
 
       <section className="py-16 px-4 flex flex-col items-center justify-center gap-12 bg-gradient-to-b from-primary to-quaternary">
-        {section2.map((section) => (
-          <div className="md:w-2/3 w-full mx-auto">
+        {section2.map((section, index) => (
+          <div key={index} className="md:w-2/3 w-full mx-auto">
             <h2 className="text-4xl md:text-5xl font-bold text-center my-4 text-secondary">
               {section.title}
             </h2>

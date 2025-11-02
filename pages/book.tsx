@@ -6,6 +6,13 @@ import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "@/components/checkoutForm";
 import Image from "next/image";
 
+interface TubeType {
+    tube_type_id: string;
+    size: string;
+    price: number;
+    available_quantity: number;
+}
+
 const stripePublishableKey = "pk_test_51RzVLLQx2SGTNQwzV5NKVucZcMj3dzWj96rNwUSZUhAEZwyfyvP9FFZMcuzgufbOxJQLzNy8fgtHeGgM5mXGEgKY007BWAK2xp";
 const stripePromise = loadStripe(stripePublishableKey || '');
 const apiUrl = process.env.API_URL;
@@ -17,7 +24,7 @@ export default function Book() {
     // 3: Enter Customer Details
     // 4: Pick Payment Method
     const [dateTime, setDateTime] = useState<Date | null>(new Date());
-    const [availableTubes, setAvailableTubes] = useState<any[]>([]);
+    const [availableTubes, setAvailableTubes] = useState<TubeType[]>([]);
     const [tubeTypes, setTubeTypes] = useState<{
         tubeTypeId: string,
         numOfTubesBooked: number,
@@ -60,7 +67,11 @@ export default function Book() {
         if (isNaN(quantity)) return;
 
         const existingTubeType = tubeTypes.find((tube) => tube.tubeTypeId === tubeTypeId);
-        const tubePrice = availableTubes.find((tube) => tube.tube_type_id === tubeTypeId)?.price;
+        const tube = availableTubes.find((tube) => tube.tube_type_id === tubeTypeId);
+        const tubePrice = tube?.price;
+        const tubeSize = tube?.size;
+
+        if (!tubePrice) return;
 
         if (existingTubeType) {
             const oldPrice = existingTubeType.numOfTubesBooked * tubePrice;
@@ -71,13 +82,13 @@ export default function Book() {
             setTubeTypes([...tubeTypes]);
 
         } else {
-            const tubeSize = availableTubes.find((tube) => tube.tube_type_id === tubeTypeId)?.size;
+            if (!tubeSize) return;
             setTubeTypes([...tubeTypes, { tubeTypeId, numOfTubesBooked: quantity, size: tubeSize }]);
             setPrice(price + quantity * tubePrice);
         }
     }
 
-    const handleCustomerDetailsChange = (e: any) => {
+    const handleCustomerDetailsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setCustomer({ ...customer, [e.target.name]: e.target.value });
     }
 
@@ -99,7 +110,7 @@ export default function Book() {
         }
     }
 
-    const verifyAuthStatus = async (e: any) => {
+    const verifyAuthStatus = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const response = await fetch(`${apiUrl}/customer-auth/`, {
             method: 'POST',
@@ -372,7 +383,6 @@ export default function Book() {
                     {/* Step 3: Customer Details */}
                     {step === 3 && (
                         <form
-                            onChange={handleCustomerDetailsChange}
                             onSubmit={(e) => verifyAuthStatus(e)}
                             className="flex flex-col gap-6"
                         >
@@ -385,6 +395,7 @@ export default function Book() {
                                     <input
                                         name="name"
                                         type="text"
+                                        onChange={handleCustomerDetailsChange}
                                         className="w-full px-4 py-3 border-2 border-secondary/30 rounded-lg text-secondary focus:border-secondary focus:outline-none transition-colors"
                                         placeholder="John Doe"
                                         required
@@ -395,6 +406,7 @@ export default function Book() {
                                     <input
                                         name="email"
                                         type="email"
+                                        onChange={handleCustomerDetailsChange}
                                         className="w-full px-4 py-3 border-2 border-secondary/30 rounded-lg text-secondary focus:border-secondary focus:outline-none transition-colors"
                                         placeholder="john@example.com"
                                         required
@@ -405,6 +417,7 @@ export default function Book() {
                                     <input
                                         name="phone"
                                         type="tel"
+                                        onChange={handleCustomerDetailsChange}
                                         className="w-full px-4 py-3 border-2 border-secondary/30 rounded-lg text-secondary focus:border-secondary focus:outline-none transition-colors"
                                         placeholder="(555) 123-4567"
                                         required
