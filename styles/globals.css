@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  --color-quaternary: var(--quaternary);
+}
+
 :root {
-  --primary: #2b3958;
-  --secondary: #fabe65;
+  --primary: #bdcff7;
+  --secondary: #2c70bd;
+  --tertiary: #b3cea4;
+  --quaternary: #ddccc1;
 }
 
 body {
